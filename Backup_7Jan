@@ -1,0 +1,151 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+#define STOP 375
+#define CW 337
+#define CCW 412
+
+#define SERVOMIN 150
+#define SERVOMAX 600
+#define CENTER 375
+
+volatile int angle = 0;
+volatile int direction = 1;
+const int ticksPerDegree = 1;
+const unsigned long SERVO_MOVE_TIMEOUT = 3000;
+
+int RShoulder =8 , RUpperArm = 9, RElbow = 10, RLowerArm = 11, RUpperHand = 12, RHand = 13;
+int Test = 7;
+int LShoulder = 0, LUpperArm = 1, LElbow = 2, LLowerArm = 3, LUpperHand = 4, LHand = 5;
+
+int RShoulderOffset =0 , RUpperArmROffset = 0, RElbowROffset = 0, RLowerArmROffset = 0, RUpperHandROffset = 0, RHandROffset = 0;
+int TestOffset = 0;
+int LShoulderOffset = 0, LUpperArmOffset = 0, LElbowOffset = 0, LLowerArmOffset = 0, LUpperHandOffset = 0, LHandOffset = 0;
+
+void setup(){
+  Serial.begin(9600);
+  Serial.println("Starting Servo + Encorder Test.....");
+
+  pwm.begin();
+  pwm.setPWMFreq(50);
+
+  pinMode(RShoulder, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(RShoulder), encoderISR, CHANGE);
+    
+  pinMode(Test, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(Test), encoderISR, CHANGE);
+
+  pwm.setPWM(RShoulder, 0, STOP);
+  Serial.println("Servo initialized to STOP Positio.");
+}
+
+void loop(){
+  Serial.println("\nMoving to 90 Degree (CW)...");
+  moveToAngle(Test, 90, 1);
+  delay(2000);
+
+  Serial.println("\nMoving to 45 Degree (CCW)...");
+  moveToAngle(Test,45, -1);
+  delay(2000);
+}
+
+void moveToAngle(int Pin, int targetAngle, int directionInput){
+  angle = 0;
+  direction = directionInput;
+
+  if(direction > 0){
+    pwm.setPWM(Pin, 0, CW);
+  }else{
+    pwm.setPWM(Pin, 0, CCW);
+  }
+
+  int targetTicks = targetAngle * ticksPerDegree;
+  
+  unsigned long startTime = millis();
+
+  while(angle < targetTicks){
+    if(millis() - startTime > SERVO_MOVE_TIMEOUT){
+      Serial.println("ERROR: Timeout Reached....");
+      break;
+    }
+  }
+  pwm.setPWM(Pin, 0, STOP);
+  Serial.println("Target angle = ");
+  Serial.println(targetAngle);
+  Serial.println(" deg. Measure ticks = ");
+  Serial.println(angle);
+  Serial.println("Servo Stopped.");
+}
+
+void encoderISR(){
+  angle += direction;
+}
+
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+// Create PCA9685 object
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+// Servo PWM constants (adjust for your servos)
+#define SERVOMIN  150  // Min pulse length for servos
+#define SERVOMAX  600  // Max pulse length for servos
+#define STOP_PWM 307
+#define FORWARD_PWM 350
+#define REVERSE_PWM 260
+
+// Servo channel assignments
+int RShoulder =8 , RUpperArm = 9, RElbow = 10, RLowerArm = 11, RUpperHand = 12, RHand = 13;
+int Test = 7;
+int LShoulder = 0, LUpperArm = 1, LElbow = 2, LLowerArm = 3, LUpperHand = 4, LHand = 5;
+
+// Offset values for calibration
+int LShoulderOffset = 0, LUpperArmOffset = -10, LElbowOffset = 0, LLowerArmOffset = -20, LHandOffset = 0;
+int RShoulderOffset = 90, RUpperArmOffset = 95, RElbowOffset = 73, RLowerArmOffset = 90, RHandOffset = 75;
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Initializing PCA9685 for Servo Control...");
+
+  // Initialize PCA9685
+  pwm.begin();
+  pwm.setPWMFreq(50); // Set PWM frequency to 50Hz for servos
+
+  delay(10); // Wait for the PCA9685 to initialize
+
+  // Move all servos to their zero positions
+  calibrateServos();
+}
+
+void loop() {
+  // Your loop logic here (e.g., controlling servos dynamically)
+}
+
+void calibrateServos() {
+  Serial.println("Calibrating Servos...");
+
+  // Set right arm servos to zero position
+  setServoAngle(LShoulder, 0 + LShoulderOffset);
+  setServoAngle(LUpperArm, 0 + LUpperArmOffset);
+  setServoAngle(LElbow, 0 + LElbowOffset);
+  setServoAngle(LLowerArm, 0 + LLowerArmOffset);
+  setServoAngle(LUpperHand, 0 + LHandOffset);
+
+  // Set left arm servos to zero position (inverted for alignment)
+  setServoAngle(RShoulder, 0 + RShoulderOffset);
+  setServoAngle(RUpperArm, (0 + RUpperArmOffset));
+  setServoAngle(RElbow, 0 + RElbowOffset);
+  setServoAngle(RLowerArm, 0 + RLowerArmOffset);
+  setServoAngle(RUpperHand, 0 + RHandOffset);
+
+  delay(2000); // Observe positions
+}
+
+// Function to set the angle of a servo using PCA9685
+void setServoAngle(int channel, int angle) {
+  // Map angle (0-180) to pulse length (SERVOMIN-SERVOMAX)
+  int pulselen = map(angle, 0, 180, SERVOMIN, SERVOMAX);
+  pwm.setPWM(channel, 0, pulselen);
+}
