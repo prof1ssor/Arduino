@@ -1,0 +1,94 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+// Adjust for your continuous servo:
+#define STOP 375
+#define CW   337
+#define CCW  540
+
+#define SERVO_CHANNEL 9
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Type commands like 'w 337' or 's 540' or 'x 375'");
+  Serial.println("Press Enter once after the whole line.");
+
+  Wire.begin();
+  pwm.begin();
+  pwm.setPWMFreq(50);
+  pwm.setPWM(SERVO_CHANNEL, 0, STOP); // Start servo at STOP
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    // Read an entire line (up to newline) as a String
+    String line = Serial.readStringUntil('\n');
+    line.trim(); // Remove whitespace around the line
+
+    // If line is empty, ignore
+    if (line.length() == 0) {
+      return;
+    }
+
+    // Split line at first space, e.g. "w 337"
+    // If there's no space, token2 will be empty (we can default it).
+    int spaceIndex = line.indexOf(' ');
+    String token1, token2;
+
+    if (spaceIndex == -1) {
+      // No space found, so entire line = token1
+      token1 = line;
+    } else {
+      token1 = line.substring(0, spaceIndex);
+      token2 = line.substring(spaceIndex + 1);
+      token2.trim(); // remove any trailing spaces
+    }
+
+    // Convert token1 to a command char
+    // e.g. if token1 == "w", then cmd = 'w'
+    char cmd = '\0';
+    if (token1.length() > 0) {
+      cmd = token1.charAt(0);
+    }
+
+    // Convert token2 to an integer (default to STOP if empty)
+    int val = STOP;
+    if (token2.length() > 0) {
+      val = token2.toInt();
+    }
+
+    // Now handle the command
+    handleCommand(cmd, val);
+  }
+}
+
+void handleCommand(char cmd, int val) {
+  switch (cmd) {
+    case 'w': // rotate clockwise
+      Serial.print("CW at pulse = ");
+      Serial.println(val);
+      pwm.setPWM(SERVO_CHANNEL, 0, val);
+      break;
+
+    case 's': // rotate counterclockwise
+      Serial.print("CCW at pulse = ");
+      Serial.println(val);
+      pwm.setPWM(SERVO_CHANNEL, 0, val);
+      break;
+
+    case 'x': // stop
+      Serial.print("STOP at pulse = ");
+      Serial.println(val);
+      pwm.setPWM(SERVO_CHANNEL, 0, val);
+      break;
+
+    default:
+      // Unknown or no command
+      Serial.print("Unknown command: '");
+      Serial.print(cmd);
+      Serial.println("'");
+      break;
+  }
+}
