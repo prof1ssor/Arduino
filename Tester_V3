@@ -1,0 +1,134 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+// Create a PCA9685 driver instance on the default I2C address (0x40).
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+/*******************************************************************
+   Adjust these for YOUR continuous servo:
+   - STOP: servo holds still
+   - CW:   servo spins clockwise
+   - CCW:  servo spins counterclockwise
+********************************************************************/
+#define STOP 375  
+#define CW   110
+#define CCW  550
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Type commands like:");
+  Serial.println("   w 337 0   (CW at pulse=337 on channel=0)");
+  Serial.println("   s 540 1   (CCW at pulse=540 on channel=1)");
+  Serial.println("   x 375 9   (STOP at pulse=375 on channel=9)");
+  Serial.println("Press Enter once after the whole line.");
+
+  Wire.begin();
+  pwm.begin();
+  pwm.setPWMFreq(50); // 50 Hz for servos
+
+  // Optionally set a default channel to STOP initially (say channel 0)
+  pwm.setPWM(0, 0, STOP);
+}
+
+void loop() {
+  // If at least one character is available, read a line
+  if (Serial.available() > 0) {
+    String line = Serial.readStringUntil('\n'); // read until newline
+    line.trim(); // remove extra whitespace
+
+    // If the user typed nothing, just return
+    if (line.length() == 0) {
+      return;
+    }
+
+    // We'll parse up to three tokens: token1, token2, token3
+    // e.g. "w 337 0" => token1="w", token2="337", token3="0"
+    String token1, token2, token3;
+
+    // 1) Find the first space
+    int firstSpace = line.indexOf(' ');
+    if (firstSpace == -1) {
+      // No space found, entire line is token1
+      token1 = line;
+    } else {
+      // token1 is from start of line up to first space
+      token1 = line.substring(0, firstSpace);
+      token1.trim();
+
+      // 2) Find the second space, after firstSpace + 1
+      int secondSpace = line.indexOf(' ', firstSpace + 1);
+      if (secondSpace == -1) {
+        // Only one space found, so token2 is the remainder
+        token2 = line.substring(firstSpace + 1);
+        token2.trim();
+      } else {
+        // We have two spaces, so token2 is between them
+        token2 = line.substring(firstSpace + 1, secondSpace);
+        token2.trim();
+
+        // token3 is what's after the second space
+        token3 = line.substring(secondSpace + 1);
+        token3.trim();
+      }
+    }
+
+    // Convert token1 to a command char
+    // If token1 is "w", cmd='w'; if it's empty or invalid, cmd='\0'
+    char cmd = '\0';
+    if (token1.length() > 0) {
+      cmd = token1.charAt(0); 
+    }
+
+    // Convert token2 to an integer (default to STOP if empty)
+    int val = STOP;
+    if (token2.length() > 0) {
+      val = token2.toInt();
+    }
+
+    // Convert token3 to a channel (default to 0 if empty)
+    int servoChannel = 0;
+    if (token3.length() > 0) {
+      servoChannel = token3.toInt();
+    }
+
+    // Now handle the command
+    handleCommand(cmd, val, servoChannel);
+  }
+}
+
+// ------------------------------------------------------------
+void handleCommand(char cmd, int val, int servoChannel) {
+  // Perform the desired action with the PCA9685
+  switch (cmd) {
+    case 'w': // rotate clockwise
+      Serial.print("CW at pulse = ");
+      Serial.print(val);
+      Serial.print(", channel = ");
+      Serial.println(servoChannel);
+      pwm.setPWM(servoChannel, 0, val);
+      break;
+
+    case 's': // rotate counterclockwise
+      Serial.print("CCW at pulse = ");
+      Serial.print(val);
+      Serial.print(", channel = ");
+      Serial.println(servoChannel);
+      pwm.setPWM(servoChannel, 0, val);
+      break;
+
+    case 'x': // stop
+      Serial.print("STOP at pulse = ");
+      Serial.print(val);
+      Serial.print(", channel = ");
+      Serial.println(servoChannel);
+      pwm.setPWM(servoChannel, 0, val);
+      break;
+
+    default:
+      // Unknown or no command
+      Serial.print("Unknown command: '");
+      Serial.print(cmd);
+      Serial.println("'");
+      break;
+  }
+}
